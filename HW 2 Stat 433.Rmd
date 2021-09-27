@@ -1,0 +1,105 @@
+---
+title: "HW 2 Stat 433"
+author: "Nolan Peterson"
+date: "9/26/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(formatR)
+knitr::opts_chunk$set(echo = TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=60), comment = NA, warning = FALSE)
+library(tidyverse)
+```
+
+## Question 1
+
+```{r}
+
+## Select and name data of interest
+flights <- nycflights13::flights
+
+## Find the number of flights that have missing dep_time
+missing_dep_time <- flights %>% 
+  filter(is.na(dep_time)) %>% 
+  nrow()
+
+## Print the number of missing flights   
+cat(paste("The number of flights with missing departure time is ", missing_dep_time,".", sep = ""))
+
+## Find what other variables are missing 
+flights %>% 
+  filter(is.na(dep_time)) %>% 
+  head() %>% 
+  knitr::kable()
+
+
+```
+
+Any variable that has to do with a real world quantity that could be recorded from an actual flight is missing. This indicate that the rows with departure time missing represent the rows where flights were canceled. 
+
+## Question 2
+
+```{r}
+
+## Write a function which converts from (H)HMM format to minutes after midnight 
+HM_convert <- function(HHMM){
+  require(dplyr)
+  MMMM <- 0
+  if(HHMM <= 60){
+    MMMM <- HHMM
+  }
+  
+  else{
+    HHMM_vec <- HHMM %>% 
+      as.character() %>% 
+      strsplit("") %>% 
+      unlist() %>% 
+      as.numeric() %>% 
+      as.vector()
+    
+    ifelse(length(HHMM_vec) == 3,
+           MMMM <- HHMM_vec[1] * 60 + HHMM_vec[2] * 10 + HHMM_vec[3], 
+           MMMM <- HHMM_vec[1] * 600 + HHMM_vec[2] * 60 + HHMM_vec[3] * 10 + HHMM_vec[4])
+  }
+  
+  return(MMMM)
+  
+}
+
+## Filter out NAs
+flights_new <- flights %>% 
+  filter(!is.na(dep_time) & !is.na(sched_dep_time)) 
+
+## convert the HHMM time to minutes past midnight
+flights_new <- flights_new %>% 
+  mutate(dep_time_MPM = sapply(flights_new$dep_time, HM_convert),
+         sched_dep_time_MPM = sapply(flights_new$sched_dep_time, HM_convert))
+
+## display a part of the data to prove that it worked 
+flights_new[,16:21] %>% 
+  head() %>% 
+  knitr::kable()
+
+```
+
+## Question 3 
+
+```{r}
+## Create a variable called canceled that indicates 0 if not canceled and 1 if canceled 
+flights %>% 
+  mutate(canceled = ifelse(is.na(flights$dep_time), 1, 0)) %>% 
+
+## Group by day    
+  group_by(day) %>% 
+  
+## find mean daily delay and proportion of daily flights canceled 
+  summarise(delay_mean = mean(dep_delay, na.rm = TRUE), 
+            prop_canceled = mean(canceled)) %>% 
+  
+## create a scatter plot of mean daily delay vs prop of daily canceled flights
+  ggplot(aes(x=delay_mean ,y=prop_canceled)) + 
+  geom_point() +
+  labs(x = "Average Daily Delay", y = "Proportion of Daily Flights canceled") +
+  theme_minimal()
+```
+
